@@ -1,0 +1,13 @@
+.gradle
+build/
+.DS_Store
+*.iml
+.idea/
+local.properties
+xcuserdata/
+*.xcworkspace
+Pods/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
