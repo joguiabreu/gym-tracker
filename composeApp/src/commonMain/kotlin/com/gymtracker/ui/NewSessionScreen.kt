@@ -13,7 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.gymtracker.data.Exercise
 import com.gymtracker.data.GymRepository
-import com.gymtracker.data.WorkoutSet
+import com.gymtracker.data.WorkoutSession
+import com.gymtracker.data.estimatedTotalDurationSeconds
+import com.gymtracker.data.formatDuration
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -27,9 +29,7 @@ fun NewSessionScreen(
 ) {
     var exercises by remember { mutableStateOf(listOf<Exercise>()) }
     var nextLocalExerciseId by remember { mutableStateOf(1L) }
-    var nextLocalSetId by remember { mutableStateOf(1L) }
     var showAddExerciseDialog by remember { mutableStateOf(false) }
-    var addSetForExercise by remember { mutableStateOf<Exercise?>(null) }
 
     Scaffold(
         topBar = {
@@ -50,7 +50,11 @@ fun NewSessionScreen(
 
                         val session = repository.addSession(name, date)
                         exercises.forEach { exercise ->
-                            repository.addExercise(session.id, exercise.name)
+                            repository.addExercise(
+                                session.id, exercise.name, exercise.muscleGroup,
+                                exercise.plannedSets, exercise.plannedReps,
+                                exercise.repDurationSeconds, exercise.restBetweenSetsSeconds
+                            )
                             val savedExercise = repository.getSession(session.id)!!.exercises.last()
                             exercise.sets.forEach { set ->
                                 repository.addSet(session.id, savedExercise.id, set.reps, set.weightKg)
@@ -80,6 +84,27 @@ fun NewSessionScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)
             ) {
+                item {
+                    val previewSession = WorkoutSession(id = 0, name = "", date = "", exercises = exercises)
+                    val totalSeconds = previewSession.estimatedTotalDurationSeconds()
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Estimated Duration", style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    formatDuration(totalSeconds),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
                 val targeted = exercises.map { it.muscleGroup }.filter { it.isNotBlank() }.distinct()
                 if (targeted.isNotEmpty()) {
                     item {
@@ -92,10 +117,7 @@ fun NewSessionScreen(
                     }
                 }
                 items(exercises) { exercise ->
-                    ExerciseCard(
-                        exercise = exercise,
-                        onAddSet = { addSetForExercise = exercise }
-                    )
+                    ExerciseCard(exercise = exercise)
                     Spacer(Modifier.height(8.dp))
                 }
             }
@@ -104,13 +126,15 @@ fun NewSessionScreen(
 
     if (showAddExerciseDialog) {
         AddExerciseDialog(
-            onConfirm = { name, muscleGroup, plannedSets, plannedReps ->
+            onConfirm = { name, muscleGroup, plannedSets, plannedReps, repDuration, restBetween ->
                 exercises = exercises + Exercise(
                     id = nextLocalExerciseId++,
                     name = name,
                     muscleGroup = muscleGroup,
                     plannedSets = plannedSets,
-                    plannedReps = plannedReps
+                    plannedReps = plannedReps,
+                    repDurationSeconds = repDuration,
+                    restBetweenSetsSeconds = restBetween
                 )
                 showAddExerciseDialog = false
             },
@@ -118,17 +142,4 @@ fun NewSessionScreen(
         )
     }
 
-    addSetForExercise?.let { exercise ->
-        AddSetDialog(
-            exerciseName = exercise.name,
-            onConfirm = { reps, weightKg ->
-                val newSet = WorkoutSet(id = nextLocalSetId++, reps = reps, weightKg = weightKg)
-                exercises = exercises.map { ex ->
-                    if (ex.id == exercise.id) ex.copy(sets = ex.sets + newSet) else ex
-                }
-                addSetForExercise = null
-            },
-            onDismiss = { addSetForExercise = null }
-        )
-    }
 }

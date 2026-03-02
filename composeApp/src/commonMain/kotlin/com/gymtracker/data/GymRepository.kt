@@ -25,7 +25,9 @@ class GymRepository {
         name: String,
         muscleGroup: String = "",
         plannedSets: Int = 0,
-        plannedReps: Int = 0
+        plannedReps: Int = 0,
+        repDurationSeconds: Int = 3,
+        restBetweenSetsSeconds: Int = 60
     ): WorkoutSession? {
         val index = sessions.indexOfFirst { it.id == sessionId }
         if (index == -1) return null
@@ -35,7 +37,9 @@ class GymRepository {
             name = name,
             muscleGroup = muscleGroup,
             plannedSets = plannedSets,
-            plannedReps = plannedReps
+            plannedReps = plannedReps,
+            repDurationSeconds = repDurationSeconds,
+            restBetweenSetsSeconds = restBetweenSetsSeconds
         )
         val updated = sessions[index].copy(exercises = sessions[index].exercises + exercise)
         sessions[index] = updated
@@ -51,6 +55,36 @@ class GymRepository {
         val updatedExercises = session.exercises.map { exercise ->
             if (exercise.id == exerciseId) exercise.copy(sets = exercise.sets + set)
             else exercise
+        }
+        val updated = session.copy(exercises = updatedExercises)
+        sessions[index] = updated
+        return updated
+    }
+
+    fun updateExercise(sessionId: Long, updatedExercise: Exercise): WorkoutSession? {
+        val index = sessions.indexOfFirst { it.id == sessionId }
+        if (index == -1) return null
+
+        val session = sessions[index]
+        val updatedExercises = session.exercises.map { exercise ->
+            if (exercise.id == updatedExercise.id) updatedExercise else exercise
+        }
+        val updated = session.copy(exercises = updatedExercises)
+        sessions[index] = updated
+        return updated
+    }
+
+    fun updateSet(sessionId: Long, exerciseId: Long, setId: Long, reps: Int, weightKg: Double): WorkoutSession? {
+        val index = sessions.indexOfFirst { it.id == sessionId }
+        if (index == -1) return null
+
+        val session = sessions[index]
+        val updatedExercises = session.exercises.map { exercise ->
+            if (exercise.id == exerciseId) {
+                exercise.copy(sets = exercise.sets.map { set ->
+                    if (set.id == setId) set.copy(reps = reps, weightKg = weightKg) else set
+                })
+            } else exercise
         }
         val updated = session.copy(exercises = updatedExercises)
         sessions[index] = updated

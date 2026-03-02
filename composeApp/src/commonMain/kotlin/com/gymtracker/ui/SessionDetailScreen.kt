@@ -14,11 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.gymtracker.data.EXERCISE_CATALOG
@@ -26,6 +22,9 @@ import com.gymtracker.data.Exercise
 import com.gymtracker.data.GymRepository
 import com.gymtracker.data.MuscleGroup
 import com.gymtracker.data.WorkoutSession
+import com.gymtracker.data.estimatedDurationSeconds
+import com.gymtracker.data.estimatedTotalDurationSeconds
+import com.gymtracker.data.formatDuration
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +36,8 @@ fun SessionDetailScreen(
 ) {
     var session by remember { mutableStateOf(repository.getSession(sessionId)) }
     var showAddExerciseDialog by remember { mutableStateOf(false) }
-    var addSetForExercise by remember { mutableStateOf<Exercise?>(null) }
+    var completeExercise by remember { mutableStateOf<Exercise?>(null) }
+    var restPromptExercise by remember { mutableStateOf<Exercise?>(null) }
 
     if (session == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -78,6 +78,10 @@ fun SessionDetailScreen(
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+                item {
+                    DurationEstimateCard(session!!)
+                    Spacer(Modifier.height(8.dp))
+                }
                 val targeted = session!!.exercises
                     .map { it.muscleGroup }.filter { it.isNotBlank() }.distinct()
                 if (targeted.isNotEmpty()) {
@@ -93,8 +97,7 @@ fun SessionDetailScreen(
                 items(session!!.exercises) { exercise ->
                     ExerciseCard(
                         exercise = exercise,
-                        onAddSet = { addSetForExercise = exercise },
-                        onShowProgression = { onExerciseProgressionClick(exercise.name) }
+                        onComplete = { completeExercise = exercise }
                     )
                     Spacer(Modifier.height(8.dp))
                 }
@@ -104,31 +107,100 @@ fun SessionDetailScreen(
 
     if (showAddExerciseDialog) {
         AddExerciseDialog(
-            onConfirm = { name, muscleGroup, plannedSets, plannedReps ->
-                session = repository.addExercise(sessionId, name, muscleGroup, plannedSets, plannedReps)
+            onConfirm = { name, muscleGroup, plannedSets, plannedReps, repDuration, restBetween ->
+                session = repository.addExercise(
+                    sessionId, name, muscleGroup, plannedSets, plannedReps,
+                    repDuration, restBetween
+                )
                 showAddExerciseDialog = false
             },
             onDismiss = { showAddExerciseDialog = false }
         )
     }
 
-    addSetForExercise?.let { exercise ->
-        AddSetDialog(
-            exerciseName = exercise.name,
-            onConfirm = { reps, weightKg ->
-                session = repository.addSet(sessionId, exercise.id, reps, weightKg)
-                addSetForExercise = null
+    completeExercise?.let { exercise ->
+        ExerciseCompletionDialog(
+            exercise = exercise,
+            onConfirm = { repsPerSet ->
+                // Record each non-skipped set's actual reps
+                repsPerSet.forEachIndexed { index, reps ->
+                    if (reps < 0) return@forEachIndexed // skipped
+                    val existingSet = exercise.sets.getOrNull(index)
+                    if (existingSet != null) {
+                        if (existingSet.reps != reps) {
+                            session = repository.updateSet(sessionId, exercise.id, existingSet.id, reps, existingSet.weightKg)
+                        }
+                    } else {
+                        session = repository.addSet(sessionId, exercise.id, reps, 0.0)
+                    }
+                }
+                // Mark exercise as completed
+                val latestSession = repository.getSession(sessionId)!!
+                val latestExercise = latestSession.exercises.find { it.id == exercise.id }!!
+                val completed = latestExercise.copy(isCompleted = true)
+                session = repository.updateExercise(sessionId, completed)
+                completeExercise = null
+                restPromptExercise = completed
             },
-            onDismiss = { addSetForExercise = null }
+            onDismiss = { completeExercise = null }
         )
+    }
+
+    restPromptExercise?.let { exercise ->
+        RestTimePromptDialog(
+            onConfirm = { restSeconds ->
+                val latestSession = repository.getSession(sessionId)!!
+                val latestExercise = latestSession.exercises.find { it.id == exercise.id }!!
+                session = repository.updateExercise(
+                    sessionId,
+                    latestExercise.copy(actualRestAfterSeconds = restSeconds)
+                )
+                restPromptExercise = null
+            },
+            onSkip = { restPromptExercise = null }
+        )
+    }
+}
+
+@Composable
+private fun DurationEstimateCard(session: WorkoutSession) {
+    val totalSeconds = session.estimatedTotalDurationSeconds()
+    val completedCount = session.exercises.count { it.isCompleted }
+    val totalCount = session.exercises.size
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Estimated Duration", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    formatDuration(totalSeconds),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { if (totalCount > 0) completedCount.toFloat() / totalCount else 0f },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "$completedCount / $totalCount exercises completed",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
     }
 }
 
 @Composable
 internal fun ExerciseCard(
     exercise: Exercise,
-    onAddSet: () -> Unit,
-    onShowProgression: () -> Unit = {}
+    onComplete: (() -> Unit)? = null
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -142,9 +214,22 @@ internal fun ExerciseCard(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
+                    if (exercise.plannedSets > 0) {
+                        val estSeconds = exercise.estimatedDurationSeconds()
+                        Text(
+                            "~${formatDuration(estSeconds)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                TextButton(onClick = onShowProgression) { Text("Stats") }
-                TextButton(onClick = onAddSet) { Text("+ Set") }
+                if (exercise.isCompleted) {
+                    Text(
+                        "Completed",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
             if (exercise.plannedSets > 0) {
                 val done = exercise.sets.size
@@ -165,10 +250,7 @@ internal fun ExerciseCard(
                     )
                 }
             }
-            if (exercise.sets.isEmpty()) {
-                Text("No sets logged yet", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
+            if (exercise.sets.isNotEmpty()) {
                 exercise.sets.forEachIndexed { index, set ->
                     Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                         Text(
@@ -183,6 +265,13 @@ internal fun ExerciseCard(
                     }
                 }
             }
+            if (onComplete != null && !exercise.isCompleted && exercise.plannedSets > 0) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onComplete,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Mark Complete") }
+            }
         }
     }
 }
@@ -190,13 +279,16 @@ internal fun ExerciseCard(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun AddExerciseDialog(
-    onConfirm: (name: String, muscleGroup: String, plannedSets: Int, plannedReps: Int) -> Unit,
+    onConfirm: (name: String, muscleGroup: String, plannedSets: Int, plannedReps: Int,
+                repDurationSeconds: Int, restBetweenSetsSeconds: Int) -> Unit,
     onDismiss: () -> Unit
 ) {
     var selectedGroup by remember { mutableStateOf<MuscleGroup?>(null) }
     var selectedExercise by remember { mutableStateOf<String?>(null) }
     var plannedSets by remember { mutableStateOf(3) }
     var plannedReps by remember { mutableStateOf(10) }
+    var repDuration by remember { mutableStateOf(3) }
+    var restBetween by remember { mutableStateOf(60) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -225,6 +317,8 @@ internal fun AddExerciseDialog(
                                 selectedExercise = null
                                 plannedSets = 3
                                 plannedReps = 10
+                                repDuration = 3
+                                restBetween = 60
                             },
                             label = { Text(group.name) }
                         )
@@ -258,13 +352,28 @@ internal fun AddExerciseDialog(
                         Stepper("Sets", plannedSets, { plannedSets = it }, max = 20)
                         Stepper("Reps", plannedReps, { plannedReps = it }, max = 100)
                     }
+
+                    Text("Timing", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Stepper("Sec/Rep", repDuration, { repDuration = it }, min = 1, max = 30)
+                        Stepper("Rest (s)", restBetween, { restBetween = it }, min = 0, max = 300, step = 15)
+                    }
                 }
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) { Text("Cancel") }
                     Spacer(Modifier.width(8.dp))
                     TextButton(
-                        onClick = { onConfirm(selectedExercise!!, selectedGroup!!.name, plannedSets, plannedReps) },
+                        onClick = {
+                            onConfirm(
+                                selectedExercise!!, selectedGroup!!.name,
+                                plannedSets, plannedReps, repDuration, restBetween
+                            )
+                        },
                         enabled = selectedExercise != null
                     ) { Text("Add") }
                 }
@@ -274,15 +383,22 @@ internal fun AddExerciseDialog(
 }
 
 @Composable
-internal fun AddSetDialog(
-    exerciseName: String,
-    onConfirm: (reps: Int, weightKg: Double) -> Unit,
+private fun ExerciseCompletionDialog(
+    exercise: Exercise,
+    onConfirm: (repsPerSet: List<Int>) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var reps by remember { mutableStateOf("") }
-    var weight by remember { mutableStateOf("") }
-    val focusRequester = remember { FocusRequester() }
-    val isValid = reps.toIntOrNull() != null && weight.toDoubleOrNull() != null
+    val setCount = exercise.plannedSets.coerceAtLeast(1)
+    // -1 means skipped; positive means actual reps
+    val repsState = remember {
+        mutableStateListOf<Int>().apply {
+            repeat(setCount) { index ->
+                add(exercise.sets.getOrNull(index)?.reps ?: exercise.plannedReps)
+            }
+        }
+    }
+    // Index of first skipped set, or setCount if none skipped
+    val firstSkippedIndex = repsState.indexOfFirst { it < 0 }.let { if (it == -1) setCount else it }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -293,47 +409,151 @@ internal fun AddSetDialog(
                 modifier = Modifier
                     .padding(24.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Add Set — $exerciseName", style = MaterialTheme.typography.titleLarge)
-                OutlinedTextField(
-                    value = reps,
-                    onValueChange = { reps = it },
-                    label = { Text("Reps") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester)
+                Text("Complete — ${exercise.name}", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "How many reps did you do?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                OutlinedTextField(
-                    value = weight,
-                    onValueChange = { weight = it },
-                    label = { Text("Weight (kg)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
+
+                for (index in 0 until setCount) {
+                    val isSkipped = repsState[index] < 0
+                    val canToggleSkip = if (isSkipped) {
+                        // Can only unskip the first skipped set
+                        index == firstSkippedIndex
+                    } else {
+                        // Can skip any set at or after the current first-skipped boundary
+                        // (i.e. this set is not before an already-skipped set, or no sets skipped yet)
+                        index >= firstSkippedIndex || firstSkippedIndex == setCount
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "Set ${index + 1}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.width(50.dp)
+                        )
+
+                        if (isSkipped) {
+                            Text(
+                                "Skipped",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilledTonalIconButton(
+                                    onClick = { if (repsState[index] > 1) repsState[index] = repsState[index] - 1 },
+                                    enabled = repsState[index] > 1,
+                                    modifier = Modifier.size(36.dp)
+                                ) { Text("−", style = MaterialTheme.typography.titleMedium) }
+
+                                Text(
+                                    repsState[index].toString(),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.widthIn(min = 32.dp)
+                                )
+
+                                FilledTonalIconButton(
+                                    onClick = { repsState[index] = repsState[index] + 1 },
+                                    modifier = Modifier.size(36.dp)
+                                ) { Text("+", style = MaterialTheme.typography.titleMedium) }
+                            }
+                        }
+
+                        if (canToggleSkip) {
+                            if (isSkipped) {
+                                OutlinedButton(
+                                    onClick = { repsState[index] = exercise.plannedReps },
+                                    modifier = Modifier.height(36.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp)
+                                ) { Text("Undo", style = MaterialTheme.typography.labelMedium) }
+                            } else {
+                                OutlinedButton(
+                                    onClick = {
+                                        // Skip this set and all after it
+                                        for (i in index until setCount) {
+                                            repsState[i] = -1
+                                        }
+                                    },
+                                    modifier = Modifier.height(36.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp)
+                                ) { Text("Skip", style = MaterialTheme.typography.labelMedium) }
+                            }
+                        }
+                    }
+                }
+
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) { Text("Cancel") }
                     Spacer(Modifier.width(8.dp))
                     TextButton(
-                        onClick = { onConfirm(reps.toInt(), weight.toDouble()) },
-                        enabled = isValid
-                    ) { Text("Add") }
+                        onClick = { onConfirm(repsState.toList()) }
+                    ) { Text("Confirm") }
                 }
             }
         }
     }
-
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
 }
 
 @Composable
-private fun Stepper(
+private fun RestTimePromptDialog(
+    onConfirm: (restSeconds: Int) -> Unit,
+    onSkip: () -> Unit
+) {
+    var restMinutes by remember { mutableStateOf(2) }
+
+    Dialog(onDismissRequest = onSkip) {
+        Card(
+            shape = MaterialTheme.shapes.large,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Rest Before Next Exercise", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "How long will you rest?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Stepper("Minutes", restMinutes, { restMinutes = it }, min = 0, max = 15)
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onSkip) { Text("Skip") }
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(
+                        onClick = { onConfirm(restMinutes * 60) }
+                    ) { Text("OK") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun Stepper(
     label: String,
     value: Int,
     onValueChange: (Int) -> Unit,
     min: Int = 1,
-    max: Int
+    max: Int,
+    step: Int = 1
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -346,7 +566,7 @@ private fun Stepper(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             FilledTonalIconButton(
-                onClick = { if (value > min) onValueChange(value - 1) },
+                onClick = { if (value - step >= min) onValueChange(value - step) },
                 enabled = value > min
             ) { Text("−", style = MaterialTheme.typography.titleMedium) }
 
@@ -358,7 +578,7 @@ private fun Stepper(
             )
 
             FilledTonalIconButton(
-                onClick = { if (value < max) onValueChange(value + 1) },
+                onClick = { if (value + step <= max) onValueChange(value + step) },
                 enabled = value < max
             ) { Text("+", style = MaterialTheme.typography.titleMedium) }
         }
