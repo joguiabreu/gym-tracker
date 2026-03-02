@@ -20,10 +20,10 @@ import com.gymtracker.data.WorkoutSession
 fun HomeScreen(
     repository: GymRepository,
     onSessionClick: (WorkoutSession) -> Unit,
+    onNewSession: () -> Unit,
     onProgressionClick: () -> Unit
 ) {
     var sessions by remember { mutableStateOf(repository.getSessions()) }
-    var showAddDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -37,7 +37,7 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            FloatingActionButton(onClick = onNewSession) {
                 Icon(Icons.Default.Add, contentDescription = "Add session")
             }
         }
@@ -65,16 +65,6 @@ fun HomeScreen(
         }
     }
 
-    if (showAddDialog) {
-        AddSessionDialog(
-            onConfirm = { name, date ->
-                repository.addSession(name, date)
-                sessions = repository.getSessions()
-                showAddDialog = false
-            },
-            onDismiss = { showAddDialog = false }
-        )
-    }
 }
 
 @Composable
@@ -97,11 +87,21 @@ private fun SessionCard(
                 Text(session.name, style = MaterialTheme.typography.titleMedium)
                 Text(session.date, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    "${session.exercises.size} exercise(s)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                val targeted = session.exercises
+                    .map { it.muscleGroup }.filter { it.isNotBlank() }.distinct()
+                if (targeted.isNotEmpty()) {
+                    Text(
+                        targeted.joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Text(
+                        "${session.exercises.size} exercise(s)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete",
@@ -111,42 +111,3 @@ private fun SessionCard(
     }
 }
 
-@Composable
-private fun AddSessionDialog(
-    onConfirm: (name: String, date: String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("New Session") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Session name") },
-                    placeholder = { Text("e.g. Thursday training") },
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = date,
-                    onValueChange = { date = it },
-                    label = { Text("Date (YYYY-MM-DD)") },
-                    placeholder = { Text("2026-02-21") },
-                    singleLine = true
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { if (name.isNotBlank() && date.isNotBlank()) onConfirm(name.trim(), date.trim()) }
-            ) { Text("Add") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    )
-}

@@ -20,6 +20,8 @@ import kotlin.math.roundToInt
 @Composable
 fun ProgressionLineChart(
     data: List<ExerciseProgress>,
+    values: List<Double> = data.map { it.maxWeightKg },
+    yLabel: String = "kg",
     modifier: Modifier = Modifier,
     lineColor: Color = MaterialTheme.colorScheme.primary,
     gridColor: Color = MaterialTheme.colorScheme.outlineVariant,
@@ -41,8 +43,8 @@ fun ProgressionLineChart(
         val chartW = size.width - padLeft - padRight
         val chartH = size.height - padTop - padBottom
 
-        val maxY = data.maxOf { it.maxWeightKg }
-        val minY = (data.minOf { it.maxWeightKg } - 1.0).coerceAtLeast(0.0)
+        val maxY = values.max()
+        val minY = (values.min() - 1.0).coerceAtLeast(0.0)
         val rangeY = (maxY - minY).coerceAtLeast(1.0)
 
         // --- grid lines (4 horizontal) ---
@@ -53,7 +55,7 @@ fun ProgressionLineChart(
             drawLine(gridColor, Offset(padLeft, y), Offset(padLeft + chartW, y), strokeWidth = 1f)
 
             val value = minY + rangeY * fraction
-            val label = "${value.roundToInt()} kg"
+            val label = "${value.roundToInt()} $yLabel"
             val measured = textMeasurer.measure(AnnotatedString(label), labelStyle)
             drawText(measured, topLeft = Offset(padLeft - measured.size.width - 4f,
                 y - measured.size.height / 2f))
@@ -72,9 +74,9 @@ fun ProgressionLineChart(
         }
 
         // --- compute point positions ---
-        val points = data.mapIndexed { i, point ->
+        val points = data.mapIndexed { i, _ ->
             val x = padLeft + (i.toFloat() / (data.size - 1)) * chartW
-            val y = padTop + chartH * (1f - ((point.maxWeightKg - minY) / rangeY).toFloat())
+            val y = padTop + chartH * (1f - ((values[i] - minY) / rangeY).toFloat())
             Offset(x, y)
         }
 

@@ -4,11 +4,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import com.gymtracker.data.GymRepository
 import com.gymtracker.ui.HomeScreen
+import com.gymtracker.ui.NewSessionScreen
 import com.gymtracker.ui.ProgressionScreen
 import com.gymtracker.ui.SessionDetailScreen
 
 private sealed class Screen {
     data object Home : Screen()
+    data object NewSession : Screen()
     data class SessionDetail(val sessionId: Long) : Screen()
     data class Progression(val exerciseName: String? = null) : Screen()
 }
@@ -25,9 +27,13 @@ fun App() {
                 onSessionClick = { session ->
                     currentScreen = Screen.SessionDetail(session.id)
                 },
-                onProgressionClick = {
-                    currentScreen = Screen.Progression()
-                }
+                onNewSession = { currentScreen = Screen.NewSession },
+                onProgressionClick = { currentScreen = Screen.Progression() }
+            )
+            is Screen.NewSession -> NewSessionScreen(
+                repository = repository,
+                onSave = { currentScreen = Screen.Home },
+                onCancel = { currentScreen = Screen.Home }
             )
             is Screen.SessionDetail -> SessionDetailScreen(
                 sessionId = screen.sessionId,

@@ -9,7 +9,10 @@ data class WorkoutSession(
 
 data class Exercise(
     val id: Long,
-    val name: String,           // e.g. "Bicep curl"
+    val name: String,           // e.g. "Bicep Curl"
+    val muscleGroup: String = "", // e.g. "Arms"
+    val plannedSets: Int = 0,
+    val plannedReps: Int = 0,
     val sets: List<WorkoutSet> = emptyList()
 )
 

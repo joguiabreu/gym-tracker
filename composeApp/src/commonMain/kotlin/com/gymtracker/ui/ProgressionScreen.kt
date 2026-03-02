@@ -15,6 +15,8 @@ import com.gymtracker.data.ExerciseProgress
 import com.gymtracker.data.GymRepository
 import kotlin.math.roundToInt
 
+enum class ChartMode { MaxWeight, Volume }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProgressionScreen(
@@ -27,6 +29,7 @@ fun ProgressionScreen(
         mutableStateOf(initialExercise ?: exerciseNames.firstOrNull() ?: "")
     }
     var dropdownExpanded by remember { mutableStateOf(false) }
+    var chartMode by remember { mutableStateOf(ChartMode.MaxWeight) }
 
     val progression: List<ExerciseProgress> = remember(selectedExercise) {
         if (selectedExercise.isNotBlank()) repository.getExerciseProgression(selectedExercise)
@@ -100,17 +103,42 @@ fun ProgressionScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
+                // Mode toggle
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = chartMode == ChartMode.MaxWeight,
+                        onClick = { chartMode = ChartMode.MaxWeight },
+                        label = { Text("Max weight") }
+                    )
+                    FilterChip(
+                        selected = chartMode == ChartMode.Volume,
+                        onClick = { chartMode = ChartMode.Volume },
+                        label = { Text("Volume") }
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
                 // Chart card
+                val chartValues = if (chartMode == ChartMode.MaxWeight)
+                    progression.map { it.maxWeightKg }
+                else
+                    progression.map { it.totalVolume }
+                val yLabel = if (chartMode == ChartMode.MaxWeight) "kg" else "vol"
+
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Max weight per session",
+                            if (chartMode == ChartMode.MaxWeight) "Max weight per session"
+                            else "Volume per session",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.height(8.dp))
                         ProgressionLineChart(
                             data = progression,
+                            values = chartValues,
+                            yLabel = yLabel,
                             modifier = Modifier.fillMaxWidth().height(200.dp)
                         )
                     }
@@ -118,23 +146,41 @@ fun ProgressionScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // Summary stat
-                val maxEver = progression.maxOf { it.maxWeightKg }
-                val latest = progression.last().maxWeightKg
-                val first = progression.first().maxWeightKg
-                val delta = latest - first
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    StatCard("Personal Best", "${maxEver} kg", Modifier.weight(1f))
-                    StatCard(
-                        "Progress",
-                        "${if (delta >= 0) "+" else ""}${delta.roundToInt()} kg",
-                        Modifier.weight(1f),
-                        highlight = delta > 0
-                    )
+                // Summary stats
+                if (chartMode == ChartMode.MaxWeight) {
+                    val maxEver = progression.maxOf { it.maxWeightKg }
+                    val latest = progression.last().maxWeightKg
+                    val first = progression.first().maxWeightKg
+                    val delta = latest - first
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StatCard("Personal Best", "${maxEver} kg", Modifier.weight(1f))
+                        StatCard(
+                            "Progress",
+                            "${if (delta >= 0) "+" else ""}${delta.roundToInt()} kg",
+                            Modifier.weight(1f),
+                            highlight = delta > 0
+                        )
+                    }
+                } else {
+                    val maxVol = progression.maxOf { it.totalVolume }
+                    val latestVol = progression.last().totalVolume
+                    val firstVol = progression.first().totalVolume
+                    val deltaVol = latestVol - firstVol
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StatCard("Best Session Vol", "${maxVol.roundToInt()} vol", Modifier.weight(1f))
+                        StatCard(
+                            "Vol Progress",
+                            "${if (deltaVol >= 0) "+" else ""}${deltaVol.roundToInt()} vol",
+                            Modifier.weight(1f),
+                            highlight = deltaVol > 0
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -145,7 +191,7 @@ fun ProgressionScreen(
 
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     items(progression.reversed()) { point ->
-                        ProgressionRow(point)
+                        ProgressionRow(point, showVolume = chartMode == ChartMode.Volume)
                     }
                 }
             }
@@ -179,7 +225,7 @@ private fun StatCard(
 }
 
 @Composable
-private fun ProgressionRow(point: ExerciseProgress) {
+private fun ProgressionRow(point: ExerciseProgress, showVolume: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -191,7 +237,8 @@ private fun ProgressionRow(point: ExerciseProgress) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(
-            "${point.maxWeightKg} kg max",
+            if (showVolume) "${point.totalVolume.roundToInt()} vol"
+            else "${point.maxWeightKg} kg max",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary
         )

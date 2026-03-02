@@ -20,11 +20,23 @@ class GymRepository {
         return session
     }
 
-    fun addExercise(sessionId: Long, name: String): WorkoutSession? {
+    fun addExercise(
+        sessionId: Long,
+        name: String,
+        muscleGroup: String = "",
+        plannedSets: Int = 0,
+        plannedReps: Int = 0
+    ): WorkoutSession? {
         val index = sessions.indexOfFirst { it.id == sessionId }
         if (index == -1) return null
 
-        val exercise = Exercise(id = nextExerciseId++, name = name)
+        val exercise = Exercise(
+            id = nextExerciseId++,
+            name = name,
+            muscleGroup = muscleGroup,
+            plannedSets = plannedSets,
+            plannedReps = plannedReps
+        )
         val updated = sessions[index].copy(exercises = sessions[index].exercises + exercise)
         sessions[index] = updated
         return updated
