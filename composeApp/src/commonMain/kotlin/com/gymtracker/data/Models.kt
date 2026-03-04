@@ -4,7 +4,8 @@ data class WorkoutSession(
     val id: Long,
     val name: String,           // e.g. "Thursday training"
     val date: String,           // ISO format: "2026-02-21"
-    val exercises: List<Exercise> = emptyList()
+    val exercises: List<Exercise> = emptyList(),
+    val isFinished: Boolean = false
 )
 
 data class Exercise(
@@ -54,6 +55,15 @@ fun formatDuration(totalSeconds: Int): String {
         else -> "${minutes}m"
     }
 }
+
+data class WorkoutPlan(
+    val id: Long,
+    val name: String,
+    val exercises: List<Exercise> = emptyList()
+)
+
+fun WorkoutPlan.estimatedTotalDurationSeconds(): Int =
+    exercises.sumOf { it.estimatedDurationSeconds() }
 
 data class ExerciseProgress(
     val date: String,           // ISO "2026-02-21"

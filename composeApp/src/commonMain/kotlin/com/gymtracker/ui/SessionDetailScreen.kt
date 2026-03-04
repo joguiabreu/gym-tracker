@@ -32,10 +32,12 @@ fun SessionDetailScreen(
     sessionId: Long,
     repository: GymRepository,
     onBack: () -> Unit,
+    onFinish: () -> Unit = {},
     onExerciseProgressionClick: (exerciseName: String) -> Unit = {}
 ) {
     var session by remember { mutableStateOf(repository.getSession(sessionId)) }
     var showAddExerciseDialog by remember { mutableStateOf(false) }
+    var showFinishDialog by remember { mutableStateOf(false) }
     var completeExercise by remember { mutableStateOf<Exercise?>(null) }
     var restPromptExercise by remember { mutableStateOf<Exercise?>(null) }
 
@@ -59,6 +61,19 @@ fun SessionDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = {
+                        val incomplete = session!!.exercises.filter { !it.isCompleted }
+                        if (incomplete.isEmpty()) {
+                            repository.finishSession(sessionId)
+                            onFinish()
+                        } else {
+                            showFinishDialog = true
+                        }
+                    }) {
+                        Text("Finish Workout")
                     }
                 }
             )
@@ -159,6 +174,93 @@ fun SessionDetailScreen(
             },
             onSkip = { restPromptExercise = null }
         )
+    }
+
+    if (showFinishDialog) {
+        FinishWorkoutDialog(
+            incompleteExercises = session!!.exercises.filter { !it.isCompleted },
+            onConfirm = { exerciseEdits ->
+                exerciseEdits.forEach { (exercise, sets, reps) ->
+                    // Record sets with chosen reps
+                    repeat(sets) {
+                        repository.addSet(sessionId, exercise.id, reps, 0.0)
+                    }
+                    // Mark as completed
+                    val latest = repository.getSession(sessionId)!!
+                    val latestEx = latest.exercises.find { it.id == exercise.id }!!
+                    repository.updateExercise(sessionId, latestEx.copy(isCompleted = true))
+                }
+                repository.finishSession(sessionId)
+                showFinishDialog = false
+                onFinish()
+            },
+            onDismiss = { showFinishDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun FinishWorkoutDialog(
+    incompleteExercises: List<Exercise>,
+    onConfirm: (List<Triple<Exercise, Int, Int>>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val setsState = remember { mutableStateListOf<Int>().apply { addAll(incompleteExercises.map { it.plannedSets }) } }
+    val repsState = remember { mutableStateListOf<Int>().apply { addAll(incompleteExercises.map { it.plannedReps }) } }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = MaterialTheme.shapes.large,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("Finish Workout", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "Adjust sets/reps for incomplete exercises:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                incompleteExercises.forEachIndexed { index, exercise ->
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(exercise.name, style = MaterialTheme.typography.titleSmall)
+                        if (exercise.muscleGroup.isNotBlank()) {
+                            Text(
+                                exercise.muscleGroup,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            Stepper("Sets", setsState[index], { setsState[index] = it }, min = 0, max = 20)
+                            Stepper("Reps", repsState[index], { repsState[index] = it }, min = 0, max = 100)
+                        }
+                    }
+                    if (index < incompleteExercises.lastIndex) {
+                        HorizontalDivider()
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(onClick = {
+                        val edits = incompleteExercises.mapIndexed { index, exercise ->
+                            Triple(exercise, setsState[index], repsState[index])
+                        }
+                        onConfirm(edits)
+                    }) { Text("Finish") }
+                }
+            }
+        }
     }
 }
 

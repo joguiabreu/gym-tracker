@@ -1,5 +1,9 @@
 package com.gymtracker.data
 
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+
 /**
  * In-memory repository. Will be replaced with SQLDelight persistence.
  */
@@ -7,8 +11,10 @@ class GymRepository {
     private var nextSessionId = 1L
     private var nextExerciseId = 1L
     private var nextSetId = 1L
+    private var nextPlanId = 1L
 
     private val sessions = mutableListOf<WorkoutSession>()
+    private val plans = mutableListOf<WorkoutPlan>()
 
     fun getSessions(): List<WorkoutSession> = sessions.toList()
 
@@ -91,8 +97,78 @@ class GymRepository {
         return updated
     }
 
+    fun finishSession(id: Long): WorkoutSession? {
+        val index = sessions.indexOfFirst { it.id == id }
+        if (index == -1) return null
+        val updated = sessions[index].copy(isFinished = true)
+        sessions[index] = updated
+        return updated
+    }
+
     fun deleteSession(id: Long) {
         sessions.removeAll { it.id == id }
+    }
+
+    // ── Workout Plans ──
+
+    fun getPlans(): List<WorkoutPlan> = plans.toList()
+
+    fun getPlan(id: Long): WorkoutPlan? = plans.find { it.id == id }
+
+    fun addPlan(name: String): WorkoutPlan {
+        val plan = WorkoutPlan(id = nextPlanId++, name = name)
+        plans.add(plan)
+        return plan
+    }
+
+    fun addExerciseToPlan(
+        planId: Long,
+        name: String,
+        muscleGroup: String = "",
+        plannedSets: Int = 0,
+        plannedReps: Int = 0,
+        repDurationSeconds: Int = 3,
+        restBetweenSetsSeconds: Int = 60
+    ): WorkoutPlan? {
+        val index = plans.indexOfFirst { it.id == planId }
+        if (index == -1) return null
+
+        val exercise = Exercise(
+            id = nextExerciseId++,
+            name = name,
+            muscleGroup = muscleGroup,
+            plannedSets = plannedSets,
+            plannedReps = plannedReps,
+            repDurationSeconds = repDurationSeconds,
+            restBetweenSetsSeconds = restBetweenSetsSeconds
+        )
+        val updated = plans[index].copy(exercises = plans[index].exercises + exercise)
+        plans[index] = updated
+        return updated
+    }
+
+    fun deletePlan(id: Long) {
+        plans.removeAll { it.id == id }
+    }
+
+    fun createSessionFromPlan(planId: Long): WorkoutSession? {
+        val plan = getPlan(planId) ?: return null
+        val now = Clock.System.now()
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+        val h = now.hour.toString().padStart(2, '0')
+        val m = now.minute.toString().padStart(2, '0')
+        val name = "${now.date} $h:$m"
+        val date = now.date.toString()
+
+        val session = addSession(name, date)
+        plan.exercises.forEach { exercise ->
+            addExercise(
+                session.id, exercise.name, exercise.muscleGroup,
+                exercise.plannedSets, exercise.plannedReps,
+                exercise.repDurationSeconds, exercise.restBetweenSetsSeconds
+            )
+        }
+        return getSession(session.id)
     }
 
     /** All distinct exercise names across all sessions, sorted alphabetically. */
