@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.gymtracker.data.EXERCISE_CATALOG
+import com.gymtracker.data.ExerciseCatalog
 import com.gymtracker.data.Exercise
 import com.gymtracker.data.GymRepository
 import com.gymtracker.data.MuscleGroup
@@ -411,7 +411,7 @@ internal fun AddExerciseDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    EXERCISE_CATALOG.forEach { group ->
+                    MuscleGroup.entries.forEach { group ->
                         FilterChip(
                             selected = selectedGroup == group,
                             onClick = {
@@ -422,7 +422,7 @@ internal fun AddExerciseDialog(
                                 repDuration = 3
                                 restBetween = 60
                             },
-                            label = { Text(group.name) }
+                            label = { Text(group.name.lowercase().replaceFirstChar { it.uppercase() }) }
                         )
                     }
                 }
@@ -434,11 +434,11 @@ internal fun AddExerciseDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        group.exercises.forEach { exercise ->
+                        ExerciseCatalog.byMuscle(group).forEach { catalogExercise ->
                             FilterChip(
-                                selected = selectedExercise == exercise,
-                                onClick = { selectedExercise = exercise },
-                                label = { Text(exercise) }
+                                selected = selectedExercise == catalogExercise.name,
+                                onClick = { selectedExercise = catalogExercise.name },
+                                label = { Text(catalogExercise.name) }
                             )
                         }
                     }
@@ -472,7 +472,8 @@ internal fun AddExerciseDialog(
                     TextButton(
                         onClick = {
                             onConfirm(
-                                selectedExercise!!, selectedGroup!!.name,
+                                selectedExercise!!,
+                                selectedGroup!!.name.lowercase().replaceFirstChar { it.uppercase() },
                                 plannedSets, plannedReps, repDuration, restBetween
                             )
                         },
