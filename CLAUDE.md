@@ -43,6 +43,11 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
 - LLM integration lives in shared code, calling an HTTP endpoint (works on all targets)
 - Prefer simple, flat code — no premature abstractions
 - AI generates workouts via Claude API (Sonnet for generation, Haiku for summaries)
+- **WorkoutAiService interface** — implementations are swappable:
+  - `MockWorkoutService` — local mock for dev/testing (no API calls)
+  - `ClaudeWorkoutService` — calls Claude API directly (MVP/solo use)
+  - Future: `BackendWorkoutService` — calls your own backend (production with users)
+- `PromptBuilder` lives in shared code — moves to backend when backend is added
 - Context is built from **completed workouts only** (user-confirmed actuals, not prescriptions)
 - Exercise catalog: AI picks from a known list to ensure consistent naming and progression tracking
 - Summaries compress history — never send raw session dumps beyond the last few sessions
@@ -59,9 +64,8 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
 - ~~UserProfile model + GymRepository storage~~ ✓
 - ~~Onboarding screen (profile form + edit profile)~~ ✓
 - ~~Ktor HTTP client + ClaudeApiService~~ ✓
-- `WorkoutGenerator` service calling Claude API ← next
-- System prompt with exercise catalog and JSON schema
-- Generate → review → re-suggest flow
+- ~~WorkoutGenerator + PromptBuilder + mock responses~~ ✓
+- Generate → review → re-suggest UI flow ← next
 
 ### Phase 4: Context system
 - Completed workout logging (actuals, not prescriptions)
