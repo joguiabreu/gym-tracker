@@ -13,12 +13,15 @@ See `PRODUCT_PLAN.md` for the full product vision, user flows, and AI strategy.
 - AI: Claude API (Sonnet for production, Haiku for summaries) via OpenAI-compatible HTTP endpoint
 
 ## Data model
-- `WorkoutSession(id, name, date, exercises)` — a completed workout
-- `Exercise(id, name, sets)` — e.g. "Bench Press"
+- `WorkoutSession(id, name, date, exercises, isFinished)` — a completed workout
+- `Exercise(id, name, muscleGroup, plannedSets, plannedReps, sets, ...)` — e.g. "Bench Press"
 - `WorkoutSet(id, reps, weightKg)` — e.g. 10 reps x 80kg
+- `WorkoutPlan(id, name, exercises)` — reusable workout template
 - `UserProfile(goal, daysPerWeek, equipment, experience, injuries)` — set during onboarding
-- `WeeklySummary(weekStart, text)` — AI-compressed context
-- `MonthlySummary(month, text)` — long-term trend context
+- `ExperienceLevel` — BEGINNER, INTERMEDIATE, ADVANCED
+- `Equipment` — BARBELL, DUMBBELL, CABLE, MACHINE, NONE, PULL_UP_BAR, DIP_STATION, KETTLEBELL, BAND
+- `WeeklySummary(weekStart, text)` — AI-compressed context (planned)
+- `MonthlySummary(month, text)` — long-term trend context (planned)
 
 ## Build (from this directory)
 ```bash
@@ -52,7 +55,9 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
 
 ## Roadmap
 
-### Phase 3: Claude API integration + workout generation (next)
+### Phase 3: User profile + Claude API integration (in progress)
+- ~~UserProfile model + GymRepository storage~~ ✓
+- Onboarding screen (profile form) ← next
 - Add Ktor HTTP client to KMP shared code
 - `WorkoutGenerator` service calling Claude API
 - System prompt with exercise catalog and JSON schema
@@ -64,10 +69,8 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
 - Monthly summary roll-ups for long-term trends
 - Tiered context: free (last 3 sessions) → basic (+ weekly summaries) → premium (+ yearly trends)
 
-### Phase 5: Full user flow
-- Onboarding: profile, goals, schedule, equipment
+### Phase 5: Weekly planning + polish
 - Weekly split planning
-- Session generation with re-suggestion loop
 - Post-workout logging with edit-before-complete
 
 ## Conventions

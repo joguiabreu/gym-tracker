@@ -12,7 +12,7 @@ An app where the AI **is** the workout planner — and it lives inside the track
 User sets up their profile:
 - **Goal**: "Get bulkier upper body", "Slim down legs", "General fitness", etc.
 - **Schedule**: "I plan to work out 4 days a week" (optional — AI adjusts if skipped)
-- **Equipment**: Full gym / Home dumbbells / Bodyweight only / Custom list
+- **Equipment**: Pick from: Barbell, Dumbbell, Cable, Machine, Pull-up Bar, Dip Station, Kettlebell, Band (or none — bodyweight exercises always available)
 - **Experience**: Beginner / Intermediate / Advanced
 - **Injuries/limitations**: Free text ("bad left knee", "shoulder impingement")
 
@@ -146,13 +146,19 @@ The catalog is expandable. Users can request additions. The AI can suggest new e
 
 ### Catalog Structure
 ```
-Exercise:
+CatalogExercise:
   name: "Barbell Bench Press"
-  muscleGroups: [Chest, Triceps, Front Delts]
-  equipment: [Barbell, Bench]
-  category: Compound
-  difficulty: Intermediate
+  primaryMuscle: CHEST
+  secondaryMuscles: [TRICEPS, SHOULDERS]
+  equipment: [BARBELL]          # what the user needs (NONE = no equipment)
+  category: COMPOUND
 ```
+
+Equipment tags indicate what the user needs to have, not a training style:
+- `NONE` — truly zero equipment (push ups, planks, burpees)
+- `PULL_UP_BAR` — needs something to hang from
+- `DIP_STATION` — needs two elevated surfaces
+- `BARBELL`, `DUMBBELL`, `CABLE`, `MACHINE`, `KETTLEBELL`, `BAND` — standard gym gear
 
 ## Technical Architecture
 

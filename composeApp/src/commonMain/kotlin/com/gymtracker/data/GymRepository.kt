@@ -15,6 +15,19 @@ class GymRepository {
 
     private val sessions = mutableListOf<WorkoutSession>()
     private val plans = mutableListOf<WorkoutPlan>()
+    private var userProfile: UserProfile? = null
+
+    // ── User Profile ──
+
+    fun getProfile(): UserProfile? = userProfile
+
+    fun hasProfile(): Boolean = userProfile != null
+
+    fun saveProfile(profile: UserProfile) {
+        userProfile = profile
+    }
+
+    // ── Sessions ──
 
     fun getSessions(): List<WorkoutSession> = sessions.toList()
 

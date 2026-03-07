@@ -65,6 +65,18 @@ data class WorkoutPlan(
 fun WorkoutPlan.estimatedTotalDurationSeconds(): Int =
     exercises.sumOf { it.estimatedDurationSeconds() }
 
+enum class ExperienceLevel {
+    BEGINNER, INTERMEDIATE, ADVANCED
+}
+
+data class UserProfile(
+    val goal: String,                       // e.g. "Get bulkier upper body"
+    val daysPerWeek: Int,                   // e.g. 4
+    val equipment: Set<Equipment>,          // what the user has access to
+    val experience: ExperienceLevel,
+    val injuries: String = ""               // free text, e.g. "bad left knee"
+)
+
 data class ExerciseProgress(
     val date: String,           // ISO "2026-02-21"
     val sessionName: String,
