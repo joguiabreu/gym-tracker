@@ -58,8 +58,8 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
 ### Phase 3: User profile + Claude API integration (in progress)
 - ~~UserProfile model + GymRepository storage~~ ✓
 - ~~Onboarding screen (profile form + edit profile)~~ ✓
-- Add Ktor HTTP client to KMP shared code ← next
-- `WorkoutGenerator` service calling Claude API
+- ~~Ktor HTTP client + ClaudeApiService~~ ✓
+- `WorkoutGenerator` service calling Claude API ← next
 - System prompt with exercise catalog and JSON schema
 - Generate → review → re-suggest flow
 
