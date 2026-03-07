@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.gymtracker.data.GymRepository
+import com.gymtracker.data.SplitDay
 import com.gymtracker.data.WorkoutPlan
 import com.gymtracker.data.WorkoutSession
 
@@ -28,10 +29,12 @@ fun HomeScreen(
     onPlansClick: () -> Unit = {},
     onStartPlan: (Long) -> Unit = {},
     onNewPlan: () -> Unit = {},
-    onEditProfile: () -> Unit = {}
+    onEditProfile: () -> Unit = {},
+    onGenerate: () -> Unit = {}
 ) {
     var sessions by remember { mutableStateOf(repository.getSessions()) }
     val plans by remember { mutableStateOf(repository.getPlans()) }
+    val weeklySplit = remember { repository.getCurrentSplit() }
 
     val activeSession = sessions.find { !it.isFinished }
 
@@ -54,8 +57,16 @@ fun HomeScreen(
         },
         floatingActionButton = {
             if (activeSession == null) {
-                FloatingActionButton(onClick = onNewSession) {
-                    Icon(Icons.Default.Add, contentDescription = "Add session")
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SmallFloatingActionButton(onClick = onNewSession) {
+                        Icon(Icons.Default.Add, contentDescription = "Manual session")
+                    }
+                    ExtendedFloatingActionButton(onClick = onGenerate) {
+                        Text("Generate")
+                    }
                 }
             }
         }
@@ -81,6 +92,28 @@ fun HomeScreen(
                             sessions = repository.getSessions()
                         }
                     )
+                }
+            }
+
+            // ── Weekly Split ──
+            if (weeklySplit != null) {
+                item {
+                    Text(
+                        "This Week",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            weeklySplit.days.forEach { day ->
+                                WeeklySplitDayRow(day)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -302,6 +335,35 @@ private fun SessionCard(
                 Icon(Icons.Default.Delete, contentDescription = "Delete",
                     tint = MaterialTheme.colorScheme.error)
             }
+        }
+    }
+}
+
+@Composable
+private fun WeeklySplitDayRow(day: SplitDay) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            day.dayOfWeek,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.width(90.dp)
+        )
+        Text(
+            day.focus,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (day.focus == "Rest") MaterialTheme.colorScheme.onSurfaceVariant
+            else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        if (day.completed) {
+            Text(
+                "Done",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

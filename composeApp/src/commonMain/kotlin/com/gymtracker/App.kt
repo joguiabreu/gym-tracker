@@ -2,7 +2,9 @@ package com.gymtracker
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import com.gymtracker.ai.MockWorkoutService
 import com.gymtracker.data.GymRepository
+import com.gymtracker.ui.GenerateWorkoutScreen
 import com.gymtracker.ui.HomeScreen
 import com.gymtracker.ui.NewPlanScreen
 import com.gymtracker.ui.NewSessionScreen
@@ -20,11 +22,13 @@ private sealed class Screen {
     data object NewPlan : Screen()
     data object Onboarding : Screen()
     data object EditProfile : Screen()
+    data object GenerateWorkout : Screen()
 }
 
 @Composable
 fun App() {
     val repository = remember { GymRepository() }
+    val aiService = remember { MockWorkoutService() }
     var currentScreen by remember {
         mutableStateOf<Screen>(
             if (repository.hasProfile()) Screen.Home else Screen.Onboarding
@@ -48,7 +52,8 @@ fun App() {
                     }
                 },
                 onNewPlan = { currentScreen = Screen.NewPlan },
-                onEditProfile = { currentScreen = Screen.EditProfile }
+                onEditProfile = { currentScreen = Screen.EditProfile },
+                onGenerate = { currentScreen = Screen.GenerateWorkout }
             )
             is Screen.NewSession -> NewSessionScreen(
                 repository = repository,
@@ -89,6 +94,14 @@ fun App() {
             is Screen.EditProfile -> OnboardingScreen(
                 repository = repository,
                 onComplete = { currentScreen = Screen.Home }
+            )
+            is Screen.GenerateWorkout -> GenerateWorkoutScreen(
+                repository = repository,
+                aiService = aiService,
+                onStartWorkout = { sessionId ->
+                    currentScreen = Screen.SessionDetail(sessionId)
+                },
+                onBack = { currentScreen = Screen.Home }
             )
         }
     }

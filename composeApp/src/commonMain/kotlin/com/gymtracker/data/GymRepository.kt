@@ -16,6 +16,9 @@ class GymRepository {
     private val sessions = mutableListOf<WorkoutSession>()
     private val plans = mutableListOf<WorkoutPlan>()
     private var userProfile: UserProfile? = null
+    private var currentSplit: WeeklySplit? = null
+    private val weeklySummaries = mutableListOf<WeeklySummary>()
+    private val monthlySummaries = mutableListOf<MonthlySummary>()
 
     // ── User Profile ──
 
@@ -26,6 +29,42 @@ class GymRepository {
     fun saveProfile(profile: UserProfile) {
         userProfile = profile
     }
+
+    // ── Weekly Split ──
+
+    fun getCurrentSplit(): WeeklySplit? = currentSplit
+
+    fun saveSplit(split: WeeklySplit) {
+        currentSplit = split
+    }
+
+    fun markSplitDayCompleted(dayOfWeek: String) {
+        val split = currentSplit ?: return
+        currentSplit = split.copy(
+            days = split.days.map {
+                if (it.dayOfWeek == dayOfWeek) it.copy(completed = true) else it
+            }
+        )
+    }
+
+    // ── Summaries ──
+
+    fun getWeeklySummaries(): List<WeeklySummary> = weeklySummaries.toList()
+
+    fun addWeeklySummary(summary: WeeklySummary) {
+        weeklySummaries.removeAll { it.weekStart == summary.weekStart }
+        weeklySummaries.add(summary)
+    }
+
+    fun getMonthlySummaries(): List<MonthlySummary> = monthlySummaries.toList()
+
+    fun addMonthlySummary(summary: MonthlySummary) {
+        monthlySummaries.removeAll { it.month == summary.month }
+        monthlySummaries.add(summary)
+    }
+
+    fun getFinishedSessions(): List<WorkoutSession> =
+        sessions.filter { it.isFinished }
 
     // ── Sessions ──
 

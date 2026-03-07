@@ -1,5 +1,7 @@
 package com.gymtracker.data
 
+import kotlinx.serialization.Serializable
+
 data class WorkoutSession(
     val id: Long,
     val name: String,           // e.g. "Thursday training"
@@ -75,6 +77,31 @@ data class UserProfile(
     val equipment: Set<Equipment>,          // what the user has access to
     val experience: ExperienceLevel,
     val injuries: String = ""               // free text, e.g. "bad left knee"
+)
+
+@Serializable
+data class WeeklySplit(
+    val weekStart: String,                  // ISO date of Monday, e.g. "2026-03-02"
+    val days: List<SplitDay>
+)
+
+@Serializable
+data class SplitDay(
+    val dayOfWeek: String,                  // e.g. "Monday"
+    val focus: String,                      // e.g. "Chest/Triceps"
+    val completed: Boolean = false
+)
+
+@Serializable
+data class WeeklySummary(
+    val weekStart: String,                  // ISO date of Monday
+    val text: String                        // AI-compressed summary ~100 tokens
+)
+
+@Serializable
+data class MonthlySummary(
+    val month: String,                      // e.g. "2026-03"
+    val text: String                        // AI-compressed trends ~100 tokens
 )
 
 data class ExerciseProgress(

@@ -20,8 +20,10 @@ See `PRODUCT_PLAN.md` for the full product vision, user flows, and AI strategy.
 - `UserProfile(goal, daysPerWeek, equipment, experience, injuries)` — set during onboarding
 - `ExperienceLevel` — BEGINNER, INTERMEDIATE, ADVANCED
 - `Equipment` — BARBELL, DUMBBELL, CABLE, MACHINE, NONE, PULL_UP_BAR, DIP_STATION, KETTLEBELL, BAND
-- `WeeklySummary(weekStart, text)` — AI-compressed context (planned)
-- `MonthlySummary(month, text)` — long-term trend context (planned)
+- `WeeklySplit(weekStart, days)` — AI-generated weekly training plan
+- `SplitDay(dayOfWeek, focus, completed)` — one day in the split
+- `WeeklySummary(weekStart, text)` — AI-compressed weekly context
+- `MonthlySummary(month, text)` — AI-compressed monthly trends
 
 ## Build (from this directory)
 ```bash
@@ -48,6 +50,10 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
   - `ClaudeWorkoutService` — calls Claude API directly (MVP/solo use)
   - Future: `BackendWorkoutService` — calls your own backend (production with users)
 - `PromptBuilder` lives in shared code — moves to backend when backend is added
+- **ContextManager** assembles tiered context for AI prompts:
+  - FREE: last 3 completed sessions only
+  - BASIC: + 4 weeks of weekly summaries
+  - PREMIUM: + 12 months of monthly trend summaries
 - Context is built from **completed workouts only** (user-confirmed actuals, not prescriptions)
 - Exercise catalog: AI picks from a known list to ensure consistent naming and progression tracking
 - Summaries compress history — never send raw session dumps beyond the last few sessions
@@ -60,22 +66,25 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
 
 ## Roadmap
 
-### Phase 3: User profile + Claude API integration (in progress)
+### Phase 3: User profile + Claude API integration (COMPLETED)
 - ~~UserProfile model + GymRepository storage~~ ✓
 - ~~Onboarding screen (profile form + edit profile)~~ ✓
 - ~~Ktor HTTP client + ClaudeApiService~~ ✓
 - ~~WorkoutGenerator + PromptBuilder + mock responses~~ ✓
-- Generate → review → re-suggest UI flow ← next
+- ~~Generate → review → re-suggest UI flow~~ ✓
 
-### Phase 4: Context system
-- Completed workout logging (actuals, not prescriptions)
-- Weekly summary generation (AI compresses session history)
-- Monthly summary roll-ups for long-term trends
-- Tiered context: free (last 3 sessions) → basic (+ weekly summaries) → premium (+ yearly trends)
+### Phase 4: Context system + weekly planning (COMPLETED)
+- ~~Session completion as context — finished sessions wired into AI prompt with full set data~~ ✓
+- ~~Weekly split planning — model, mock generation, HomeScreen display~~ ✓
+- ~~Weekly/monthly summary models + generation (mock + Claude)~~ ✓
+- ~~ContextManager — tiered context assembly (FREE/BASIC/PREMIUM)~~ ✓
+- ~~PromptBuilder enhanced — includes split, weekly summaries, monthly trends~~ ✓
 
-### Phase 5: Weekly planning + polish
-- Weekly split planning
+### Phase 5: Polish + production readiness
+- SQLDelight persistence (replace in-memory storage)
+- Wire real Claude API key (swap MockWorkoutService → ClaudeWorkoutService)
 - Post-workout logging with edit-before-complete
+- Backend proxy service (when user base grows)
 
 ## Conventions
 - Kotlin code style: standard Kotlin conventions

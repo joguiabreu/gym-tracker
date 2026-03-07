@@ -80,7 +80,10 @@ RESPONSE FORMAT: Return ONLY valid JSON, no markdown, no explanation outside the
 
     fun buildGenerateMessage(
         target: String = "",
-        recentSessions: List<WorkoutSession> = emptyList()
+        recentSessions: List<WorkoutSession> = emptyList(),
+        weeklySplit: WeeklySplit? = null,
+        weeklySummaries: List<WeeklySummary> = emptyList(),
+        monthlySummaries: List<MonthlySummary> = emptyList()
     ): String {
         val parts = mutableListOf<String>()
 
@@ -90,15 +93,37 @@ RESPONSE FORMAT: Return ONLY valid JSON, no markdown, no explanation outside the
             parts.add("Generate a workout for today. Pick the best muscle groups based on my goal and any recent history.")
         }
 
-        if (recentSessions.isNotEmpty()) {
-            parts.add("\nRecent sessions:")
-            recentSessions.takeLast(3).forEach { session ->
-                val exercises = session.exercises.joinToString(", ") { ex ->
-                    val weight = ex.sets.maxOfOrNull { it.weightKg }?.let { " @${it}kg" } ?: ""
-                    "${ex.name}$weight"
-                }
-                parts.add("- ${session.date}: $exercises")
+        if (weeklySplit != null) {
+            parts.add("\nWeekly split plan (week of ${weeklySplit.weekStart}):")
+            weeklySplit.days.forEach { day ->
+                val status = if (day.completed) " [done]" else ""
+                parts.add("  ${day.dayOfWeek}: ${day.focus}$status")
             }
+        }
+
+        if (recentSessions.isNotEmpty()) {
+            parts.add("\nRecent completed sessions (actuals, not prescriptions):")
+            recentSessions.takeLast(3).forEach { session ->
+                parts.add("- ${session.date}:")
+                session.exercises.forEach { ex ->
+                    if (ex.sets.isNotEmpty()) {
+                        val setDetails = ex.sets.joinToString(", ") { "${it.reps}r@${it.weightKg}kg" }
+                        parts.add("    ${ex.name}: $setDetails")
+                    } else {
+                        parts.add("    ${ex.name}: (no sets logged)")
+                    }
+                }
+            }
+        }
+
+        if (weeklySummaries.isNotEmpty()) {
+            parts.add("\nWeekly summaries:")
+            weeklySummaries.forEach { parts.add("- Week of ${it.weekStart}: ${it.text}") }
+        }
+
+        if (monthlySummaries.isNotEmpty()) {
+            parts.add("\nMonthly trends:")
+            monthlySummaries.forEach { parts.add("- ${it.month}: ${it.text}") }
         }
 
         return parts.joinToString("\n")
@@ -120,6 +145,66 @@ RESPONSE FORMAT: Return ONLY valid JSON, no markdown, no explanation outside the
 
         parts.add("\nReturn a complete workout with the kept exercises in their positions and new exercises replacing the rejected ones.")
 
+        return parts.joinToString("\n")
+    }
+
+    fun buildWeeklySplitPrompt(
+        profile: UserProfile,
+        recentSessions: List<WorkoutSession>
+    ): Pair<String, String> {
+        val system = """
+You are a personal trainer planning a weekly training split.
+
+USER PROFILE:
+- Goal: ${profile.goal}
+- Schedule: ${profile.daysPerWeek} days/week
+- Experience: ${profile.experience.name.lowercase()}
+${if (profile.injuries.isNotBlank()) "- Injuries: ${profile.injuries}" else ""}
+
+Return ONLY valid JSON:
+{"weekStart":"YYYY-MM-DD","days":[{"dayOfWeek":"Monday","focus":"Chest/Triceps","completed":false},...]}
+Include all 7 days. Use "Rest" for non-training days. Spread training days for recovery.
+""".trimIndent()
+
+        val user = buildString {
+            append("Plan a weekly split for me.")
+            if (recentSessions.isNotEmpty()) {
+                append("\n\nRecent training:")
+                recentSessions.takeLast(3).forEach { session ->
+                    val muscles = session.exercises.map { it.muscleGroup }
+                        .filter { it.isNotBlank() }.distinct()
+                    append("\n- ${session.date}: ${muscles.joinToString(", ")}")
+                }
+            }
+        }
+
+        return system to user
+    }
+
+    fun buildWeeklySummaryPrompt(sessions: List<WorkoutSession>): String {
+        val parts = mutableListOf("Compress these workout sessions into a ~100 token summary.\n")
+        sessions.forEach { session ->
+            parts.add("${session.date}:")
+            session.exercises.forEach { ex ->
+                if (ex.sets.isNotEmpty()) {
+                    val best = ex.sets.maxByOrNull { it.weightKg }
+                    parts.add("  ${ex.name}: ${ex.sets.size} sets, best ${best?.reps}r@${best?.weightKg}kg")
+                } else {
+                    parts.add("  ${ex.name}: no sets logged")
+                }
+            }
+        }
+        parts.add("\nReturn ONLY JSON: {\"weekStart\":\"YYYY-MM-DD\",\"text\":\"summary here\"}")
+        return parts.joinToString("\n")
+    }
+
+    fun buildMonthlySummaryPrompt(
+        weeklySummaries: List<WeeklySummary>,
+        month: String
+    ): String {
+        val parts = mutableListOf("Compress these weekly summaries into a ~100 token monthly trend report.\n")
+        weeklySummaries.forEach { parts.add("Week of ${it.weekStart}: ${it.text}") }
+        parts.add("\nReturn ONLY JSON: {\"month\":\"$month\",\"text\":\"monthly trend summary here\"}")
         return parts.joinToString("\n")
     }
 }
