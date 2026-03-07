@@ -1,18 +1,24 @@
 # Gym Tracker
 
 ## Vision
-A cross-platform workout tracking app with an integrated LLM that generates workouts on the fly — no more copying from chat apps into workout apps.
+An AI-powered workout companion that generates personalized, context-aware workouts. The AI acts as a personal trainer — it knows your goals, remembers your history, adapts to your feedback, and plans intelligently across sessions. No more copying workouts from chat apps. No more generic programs.
+
+See `PRODUCT_PLAN.md` for the full product vision, user flows, and AI strategy.
 
 ## Stack
 - **Kotlin Multiplatform** + **Compose Multiplatform** (shared UI + logic)
 - Targets: Android, iOS, Web (wasmJs)
 - Data layer: in-memory `GymRepository` (SQLDelight planned)
 - Navigation: sealed `Screen` class in `App.kt`
+- AI: Claude API (Sonnet for production, Haiku for summaries) via OpenAI-compatible HTTP endpoint
 
 ## Data model
-- `WorkoutSession(id, name, date, exercises)`
-- `Exercise(id, name, sets)`
-- `WorkoutSet(id, reps, weightKg)`
+- `WorkoutSession(id, name, date, exercises)` — a completed workout
+- `Exercise(id, name, sets)` — e.g. "Bench Press"
+- `WorkoutSet(id, reps, weightKg)` — e.g. 10 reps x 80kg
+- `UserProfile(goal, daysPerWeek, equipment, experience, injuries)` — set during onboarding
+- `WeeklySummary(weekStart, text)` — AI-compressed context
+- `MonthlySummary(month, text)` — long-term trend context
 
 ## Build (from this directory)
 ```bash
@@ -31,45 +37,38 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
 
 ## Architecture decisions
 - Keep shared logic in `commonMain` — platform code only for platform-specific APIs
-- LLM integration will live in shared code, calling an HTTP endpoint (works on all targets)
+- LLM integration lives in shared code, calling an HTTP endpoint (works on all targets)
 - Prefer simple, flat code — no premature abstractions
+- AI generates workouts via Claude API (Sonnet for generation, Haiku for summaries)
+- Context is built from **completed workouts only** (user-confirmed actuals, not prescriptions)
+- Exercise catalog: AI picks from a known list to ensure consistent naming and progression tracking
+- Summaries compress history — never send raw session dumps beyond the last few sessions
 
-## WASM + LLM environment
-
-### WasmEdge (installed)
-- Version 0.14.1, installed at `~/.wasmedge/`
-- Activate with: `source ~/.wasmedge/env`
-- WASI-NN plugin included (needed for LLM inference)
-- WABT toolkit installed via apt (`wat2wasm`, `wasm2wat`, `wasm-objdump`)
-
-### Key facts for Phase 2
-- WASI-NN plugin wraps llama.cpp as a native host plugin — inference runs at native speed, not in WASM
-- LlamaEdge's `llama-api-server.wasm` exposes OpenAI-compatible `/v1/chat/completions`
-- Target model: SmolLM-360M GGUF (fits in ~600MB free RAM); TinyLlama-1.1B as upgrade if RAM allows
-- Container has ~2GB total / ~600MB free — stop Gradle daemons before running LLM
+## WASM learning (completed)
+- Phases 1-2 explored WASM runtimes (WasmEdge) and local LLM inference (LlamaEdge)
+- Key finding: sub-2B local models can produce JSON but not quality content
+- Cloud API (Claude) is the right choice — ~$0.20/month/user with Sonnet
+- WasmEdge 0.14.1 remains installed at `~/.wasmedge/` if needed
 
 ## Roadmap
 
-### Phase 1: WASM foundations — COMPLETED
-- WasmEdge runtime installed and verified on arm64
-- Explored WASM modules, WASI, host functions
-
-### Phase 2: LlamaEdge — local LLM via WASM (next)
-- Download `llama-api-server.wasm` (pre-built API server)
-- Download SmolLM-360M GGUF model from HuggingFace
-- Start the server, test with curl
-- Validate structured JSON output for workout generation
-
-### Phase 3: Workout generation prompt engineering
-- System prompt that outputs JSON matching our data model
-- Test with SmolLM-360M; try TinyLlama-1.1B if quality is too low
-- Goal: reliable structured workout generation from natural language
-
-### Phase 4: Integrate with gym-tracker
+### Phase 3: Claude API integration + workout generation (next)
 - Add Ktor HTTP client to KMP shared code
-- `WorkoutGenerator` service that calls the LLM endpoint
-- Parse JSON response → WorkoutSession/Exercise/WorkoutSet
-- UI: text input → "Generate Workout" → workout created in app
+- `WorkoutGenerator` service calling Claude API
+- System prompt with exercise catalog and JSON schema
+- Generate → review → re-suggest flow
+
+### Phase 4: Context system
+- Completed workout logging (actuals, not prescriptions)
+- Weekly summary generation (AI compresses session history)
+- Monthly summary roll-ups for long-term trends
+- Tiered context: free (last 3 sessions) → basic (+ weekly summaries) → premium (+ yearly trends)
+
+### Phase 5: Full user flow
+- Onboarding: profile, goals, schedule, equipment
+- Weekly split planning
+- Session generation with re-suggestion loop
+- Post-workout logging with edit-before-complete
 
 ## Conventions
 - Kotlin code style: standard Kotlin conventions
