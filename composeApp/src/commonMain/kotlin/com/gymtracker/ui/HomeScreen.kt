@@ -27,7 +27,8 @@ fun HomeScreen(
     onProgressionClick: () -> Unit,
     onPlansClick: () -> Unit = {},
     onStartPlan: (Long) -> Unit = {},
-    onNewPlan: () -> Unit = {}
+    onNewPlan: () -> Unit = {},
+    onEditProfile: () -> Unit = {}
 ) {
     var sessions by remember { mutableStateOf(repository.getSessions()) }
     val plans by remember { mutableStateOf(repository.getPlans()) }
@@ -44,6 +45,9 @@ fun HomeScreen(
                     }
                     TextButton(onClick = onProgressionClick) {
                         Text("Progress")
+                    }
+                    TextButton(onClick = onEditProfile) {
+                        Text("Profile")
                     }
                 }
             )

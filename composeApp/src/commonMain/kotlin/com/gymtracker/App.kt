@@ -6,6 +6,7 @@ import com.gymtracker.data.GymRepository
 import com.gymtracker.ui.HomeScreen
 import com.gymtracker.ui.NewPlanScreen
 import com.gymtracker.ui.NewSessionScreen
+import com.gymtracker.ui.OnboardingScreen
 import com.gymtracker.ui.ProgressionScreen
 import com.gymtracker.ui.SessionDetailScreen
 import com.gymtracker.ui.WorkoutPlansScreen
@@ -17,12 +18,18 @@ private sealed class Screen {
     data class Progression(val exerciseName: String? = null) : Screen()
     data object Plans : Screen()
     data object NewPlan : Screen()
+    data object Onboarding : Screen()
+    data object EditProfile : Screen()
 }
 
 @Composable
 fun App() {
     val repository = remember { GymRepository() }
-    var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
+    var currentScreen by remember {
+        mutableStateOf<Screen>(
+            if (repository.hasProfile()) Screen.Home else Screen.Onboarding
+        )
+    }
 
     MaterialTheme {
         when (val screen = currentScreen) {
@@ -40,7 +47,8 @@ fun App() {
                         currentScreen = Screen.SessionDetail(session.id)
                     }
                 },
-                onNewPlan = { currentScreen = Screen.NewPlan }
+                onNewPlan = { currentScreen = Screen.NewPlan },
+                onEditProfile = { currentScreen = Screen.EditProfile }
             )
             is Screen.NewSession -> NewSessionScreen(
                 repository = repository,
@@ -73,6 +81,14 @@ fun App() {
                 repository = repository,
                 onSave = { currentScreen = Screen.Plans },
                 onCancel = { currentScreen = Screen.Plans }
+            )
+            is Screen.Onboarding -> OnboardingScreen(
+                repository = repository,
+                onComplete = { currentScreen = Screen.Home }
+            )
+            is Screen.EditProfile -> OnboardingScreen(
+                repository = repository,
+                onComplete = { currentScreen = Screen.Home }
             )
         }
     }
