@@ -162,15 +162,37 @@ Equipment tags indicate what the user needs to have, not a training style:
 
 ## Technical Architecture
 
-### AI Service
-- Shared KMP code (works on all platforms)
-- Ktor HTTP client calling Claude API
-- System prompt includes: exercise catalog, JSON schema, user profile
-- Response parsing: JSON → data model objects
+### Multi-module monorepo
+```
+gym-tracker/
+├── shared/       ← API contract types + ExerciseCatalog (KMP: jvm, wasmJs, iOS)
+├── server/       ← Ktor backend: prompts, Claude API calls, business logic (JVM)
+├── composeApp/   ← Compose UI app: data collection + display (KMP)
+└── gradle/libs.versions.toml
+```
+
+### "Dumb app, smart backend"
+- **App** collects structured data (profile, target, session history) and sends it to the backend
+- **Backend** owns all intelligence: builds prompts, calls Claude, returns clean workout JSON
+- Shared types ensure app and server speak the same language without duplication
+
+### Backend API (Ktor server)
+- `POST /workout/generate` — generate a workout from profile + context
+- `POST /workout/resuggest` — replace rejected exercises
+- `POST /split/generate` — generate weekly training split
+- `POST /summary/weekly` — compress sessions into weekly summary
+- `POST /summary/monthly` — compress weekly summaries into monthly trends
+- `GET /health` — health check
+- Deployable via Docker (Alpine JRE 21)
+
+### App AI Service (swappable implementations)
+- `BackendWorkoutService` — calls server endpoints (production)
+- `MockWorkoutService` — local mock, no API calls (development)
+- `ClaudeWorkoutService` — calls Claude API directly (MVP/solo use)
+- All implement `WorkoutAiService` interface — swap in `App.kt`
 
 ### Context Manager
-- Stores completed sessions locally (SQLDelight)
-- Manages summary generation (background API calls)
+- Stores completed sessions locally (SQLDelight planned)
 - Builds the context payload for each request based on user's tier
 - Handles the layered context assembly (profile + recent sessions + summaries)
 

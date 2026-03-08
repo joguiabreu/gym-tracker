@@ -13,8 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.gymtracker.ai.GeneratedExercise
-import com.gymtracker.ai.GeneratedWorkout
+import com.gymtracker.shared.GeneratedExercise
+import com.gymtracker.shared.GeneratedWorkout
 import com.gymtracker.ai.WorkoutAiService
 import com.gymtracker.ai.ContextManager
 import com.gymtracker.ai.UserTier

@@ -1,6 +1,8 @@
 package com.gymtracker.ai
 
 import com.gymtracker.data.*
+import com.gymtracker.shared.GeneratedExercise
+import com.gymtracker.shared.GeneratedWorkout
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime

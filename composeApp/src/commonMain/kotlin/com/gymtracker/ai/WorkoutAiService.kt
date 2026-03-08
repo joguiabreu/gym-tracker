@@ -5,6 +5,8 @@ import com.gymtracker.data.WeeklySplit
 import com.gymtracker.data.WeeklySummary
 import com.gymtracker.data.MonthlySummary
 import com.gymtracker.data.WorkoutSession
+import com.gymtracker.shared.GeneratedExercise
+import com.gymtracker.shared.GeneratedWorkout
 
 interface WorkoutAiService {
 

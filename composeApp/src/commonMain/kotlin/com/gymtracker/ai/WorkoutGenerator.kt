@@ -1,25 +1,8 @@
 package com.gymtracker.ai
 
 import com.gymtracker.data.*
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-
-// ── AI response schema ──
-
-@Serializable
-data class GeneratedWorkout(
-    val exercises: List<GeneratedExercise>,
-    val reasoning: String = ""
-)
-
-@Serializable
-data class GeneratedExercise(
-    val name: String,
-    @SerialName("planned_sets") val plannedSets: Int,
-    @SerialName("planned_reps") val plannedReps: Int,
-    @SerialName("suggested_weight_kg") val suggestedWeightKg: Double = 0.0,
-    val reason: String = ""
-)
+import com.gymtracker.shared.GeneratedExercise
+import com.gymtracker.shared.GeneratedWorkout
 
 // ── Prompt builder (used by ClaudeWorkoutService) ──
 

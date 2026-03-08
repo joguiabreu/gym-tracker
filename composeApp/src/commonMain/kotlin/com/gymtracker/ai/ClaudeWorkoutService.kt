@@ -1,6 +1,8 @@
 package com.gymtracker.ai
 
 import com.gymtracker.data.*
+import com.gymtracker.shared.GeneratedWorkout
+import com.gymtracker.shared.GeneratedExercise
 import kotlinx.serialization.json.Json
 
 class ClaudeWorkoutService(
