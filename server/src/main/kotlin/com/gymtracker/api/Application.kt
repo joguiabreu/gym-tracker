@@ -8,8 +8,10 @@ import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.calllogging.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.statuspages.*
+import org.slf4j.event.Level
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
@@ -36,6 +38,13 @@ fun Application.configureServer(workoutService: WorkoutService) {
             encodeDefaults = true
             prettyPrint = false
         })
+    }
+
+    // CallLogging logs every HTTP request: method, path, status, duration.
+    // This is the most basic server observability — if a request is slow or
+    // failing, you'll see it here before anything else.
+    install(CallLogging) {
+        level = Level.INFO
     }
 
     install(CORS) {

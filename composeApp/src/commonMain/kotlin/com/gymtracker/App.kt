@@ -2,7 +2,9 @@ package com.gymtracker
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import com.gymtracker.ai.LoggingWorkoutService
 import com.gymtracker.ai.MockWorkoutService
+import com.gymtracker.util.Logger
 import com.gymtracker.data.GymRepository
 import com.gymtracker.ui.GenerateWorkoutScreen
 import com.gymtracker.ui.HomeScreen
@@ -28,11 +30,13 @@ private sealed class Screen {
 @Composable
 fun App() {
     val repository = remember { GymRepository() }
-    val aiService = remember { MockWorkoutService() }
-    var currentScreen by remember {
-        mutableStateOf<Screen>(
-            if (repository.hasProfile()) Screen.Home else Screen.Onboarding
-        )
+    val aiService = remember { LoggingWorkoutService(MockWorkoutService()) }
+    val initialScreen = if (repository.hasProfile()) Screen.Home else Screen.Onboarding
+    var currentScreen by remember { mutableStateOf<Screen>(initialScreen) }
+
+    // Log navigation — track user journey through the app
+    LaunchedEffect(currentScreen) {
+        Logger.info("Nav", "screen changed", "screen" to currentScreen::class.simpleName)
     }
 
     MaterialTheme {

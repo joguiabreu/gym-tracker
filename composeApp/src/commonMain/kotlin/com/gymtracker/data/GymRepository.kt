@@ -1,8 +1,11 @@
 package com.gymtracker.data
 
+import com.gymtracker.util.Logger
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+
+private const val TAG = "Repo"
 
 /**
  * In-memory repository. Will be replaced with SQLDelight persistence.
@@ -28,6 +31,15 @@ class GymRepository {
 
     fun saveProfile(profile: UserProfile) {
         userProfile = profile
+        Logger.info(TAG, "profile saved",
+            "goal" to profile.goal,
+            "daysPerWeek" to profile.daysPerWeek,
+            "equipment" to profile.equipment.size,
+            "experience" to profile.experience
+        )
+        Logger.debug(TAG, "profile detail",
+            "equipmentList" to profile.equipment.map { it.name }
+        )
     }
 
     // ── Weekly Split ──
@@ -75,6 +87,7 @@ class GymRepository {
     fun addSession(name: String, date: String): WorkoutSession {
         val session = WorkoutSession(id = nextSessionId++, name = name, date = date)
         sessions.add(session)
+        Logger.info(TAG, "session created", "id" to session.id, "name" to name, "date" to date)
         return session
     }
 
@@ -154,6 +167,18 @@ class GymRepository {
         if (index == -1) return null
         val updated = sessions[index].copy(isFinished = true)
         sessions[index] = updated
+        Logger.info(TAG, "session finished",
+            "id" to id,
+            "exercises" to updated.exercises.size,
+            "setsLogged" to updated.exercises.sumOf { it.sets.size }
+        )
+        Logger.debug(TAG, "session finished detail",
+            "breakdown" to updated.exercises.map { e ->
+                "${e.name}: ${e.sets.size} sets, " +
+                    "maxWeight=${e.sets.maxOfOrNull { it.weightKg } ?: 0.0}kg, " +
+                    "totalVolume=${e.sets.sumOf { it.reps * it.weightKg }}"
+            }
+        )
         return updated
     }
 

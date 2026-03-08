@@ -47,6 +47,8 @@ class ClaudeClient(
     private val apiKey: String,
     private val model: String = "claude-sonnet-4-20250514"
 ) {
+    private val log = org.slf4j.LoggerFactory.getLogger(ClaudeClient::class.java)
+
     private val httpClient = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json {
@@ -61,6 +63,10 @@ class ClaudeClient(
         systemPrompt: String = "",
         maxTokens: Int = 2048
     ): String {
+        log.debug("sendMessage: model={}, maxTokens={}, systemLen={}, userLen={}",
+            model, maxTokens, systemPrompt.length, userMessage.length
+        )
+
         val response = httpClient.post("https://api.anthropic.com/v1/messages") {
             contentType(ContentType.Application.Json)
             header("x-api-key", apiKey)
@@ -75,6 +81,13 @@ class ClaudeClient(
             )
         }
         val body = response.body<ClaudeResponse>()
+
+        body.usage?.let { usage ->
+            log.debug("Claude API usage: inputTokens={}, outputTokens={}, totalTokens={}",
+                usage.inputTokens, usage.outputTokens, usage.inputTokens + usage.outputTokens
+            )
+        }
+
         return body.content.firstOrNull { it.type == "text" }?.text
             ?: throw Exception("No text in Claude response")
     }
