@@ -8,7 +8,7 @@ group = "com.gymtracker"
 version = "0.1.0"
 
 application {
-    mainClass.set("com.gymtracker.api.ApplicationKt")
+    mainClass.set("io.ktor.server.netty.EngineMain")
 }
 
 dependencies {

@@ -34,12 +34,17 @@ API contract types used by both app and server:
 
 ### server/
 Ktor backend — the "smart" half of the architecture:
-- `Application.kt` — Netty server on port 8080, CORS, StatusPages, ContentNegotiation
+- `Application.kt` — Ktor module (EngineMain), config-driven mode switching
 - `Routes.kt` — POST endpoints: `/workout/generate`, `/workout/resuggest`, `/split/generate`, `/summary/weekly`, `/summary/monthly`, GET `/health`
-- `WorkoutService.kt` — orchestrates PromptBuilder → ClaudeClient → JSON parsing
+- `WorkoutService.kt` — orchestrates PromptBuilder → AiClient → JSON parsing
 - `PromptBuilder.kt` — all prompt construction logic
-- `ClaudeClient.kt` — HTTP transport to Claude API
+- `AiClient.kt` — interface for AI backends
+- `ClaudeClient.kt` — real Claude API implementation
+- `MockAiClient.kt` — fake responses using catalog exercises (dev/testing)
+- `application.conf` — HOCON config: mode, port, Claude model/key (env var overrides)
 - `Dockerfile` — Alpine JRE 21 image
+- `README.md` — full API docs, startup guide, curl examples
+- `gym-tracker-api.postman_collection.json` — importable Postman collection
 
 ### composeApp/
 The "dumb" UI — collects data, sends to backend, displays results:
@@ -62,8 +67,11 @@ GRADLE_OPTS="-Xmx384m -XX:MaxMetaspaceSize=280m -XX:+UseSerialGC" \
 # Compile web target (needs ~768MB+ heap)
 GRADLE_OPTS="-Xmx768m ..." ./gradlew :composeApp:compileKotlinWasmJs --no-daemon
 
-# Run server locally
-ANTHROPIC_API_KEY=sk-... ./gradlew :server:run
+# Run server — mock mode (default, no API key needed)
+./gradlew :server:run
+
+# Run server — live mode
+GYM_MODE=live ANTHROPIC_API_KEY=sk-... ./gradlew :server:run
 
 # Build server fat jar
 ./gradlew :server:buildFatJar
@@ -71,6 +79,11 @@ ANTHROPIC_API_KEY=sk-... ./gradlew :server:run
 # If OOM: kill daemons first
 ./gradlew --stop
 ```
+
+## Server Config
+Config in `server/src/main/resources/application.conf`. Defaults to mock mode.
+Override with env vars: `GYM_MODE` (mock/live), `ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, `PORT`.
+See `server/README.md` for full API docs and `server/gym-tracker-api.postman_collection.json` for Postman import.
 
 ## Architecture decisions
 - **"Dumb app, smart backend"** — app sends structured data, backend owns prompts and calls Claude

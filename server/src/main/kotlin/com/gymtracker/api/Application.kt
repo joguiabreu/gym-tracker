@@ -1,12 +1,12 @@
 package com.gymtracker.api
 
+import com.gymtracker.ai.AiClient
 import com.gymtracker.ai.ClaudeClient
+import com.gymtracker.ai.MockAiClient
 import com.gymtracker.shared.ErrorResponse
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
-import io.ktor.server.engine.*
-import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.calllogging.*
 import io.ktor.server.plugins.cors.routing.*
@@ -16,22 +16,32 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 
-fun main() {
-    val apiKey = System.getenv("ANTHROPIC_API_KEY")
-        ?: throw IllegalStateException("ANTHROPIC_API_KEY environment variable not set")
+/**
+ * Entry point: Ktor's EngineMain reads application.conf, starts Netty,
+ * and calls this module function. No manual embeddedServer() needed.
+ *
+ * Config lives in application.conf. Defaults to mock mode so you can
+ * just run `./gradlew :server:run` with zero setup. For production,
+ * set GYM_MODE=live and ANTHROPIC_API_KEY env vars.
+ */
+fun Application.module() {
+    val config = environment.config
+    val mode = config.property("gymtracker.mode").getString()
+    val isMock = mode == "mock"
 
-    val model = System.getenv("CLAUDE_MODEL") ?: "claude-sonnet-4-20250514"
-    val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
+    val aiClient: AiClient = if (isMock) {
+        log.info("*** MOCK MODE — no Claude API calls, using fake responses ***")
+        MockAiClient()
+    } else {
+        val apiKey = config.property("gymtracker.claude.apiKey").getString()
+        require(apiKey.isNotBlank()) { "ANTHROPIC_API_KEY not set. Use GYM_MODE=mock to run without it." }
+        val model = config.property("gymtracker.claude.model").getString()
+        log.info("*** LIVE MODE — using Claude model: {} ***", model)
+        ClaudeClient(apiKey, model)
+    }
 
-    val claude = ClaudeClient(apiKey, model)
-    val workoutService = WorkoutService(claude)
+    val workoutService = WorkoutService(aiClient)
 
-    embeddedServer(Netty, port = port) {
-        configureServer(workoutService)
-    }.start(wait = true)
-}
-
-fun Application.configureServer(workoutService: WorkoutService) {
     install(ContentNegotiation) {
         json(Json {
             ignoreUnknownKeys = true
@@ -40,9 +50,6 @@ fun Application.configureServer(workoutService: WorkoutService) {
         })
     }
 
-    // CallLogging logs every HTTP request: method, path, status, duration.
-    // This is the most basic server observability — if a request is slow or
-    // failing, you'll see it here before anything else.
     install(CallLogging) {
         level = Level.INFO
     }
@@ -63,7 +70,7 @@ fun Application.configureServer(workoutService: WorkoutService) {
 
     routing {
         get("/health") {
-            call.respondText("OK")
+            call.respondText("OK (mode=$mode)")
         }
         workoutRoutes(workoutService)
     }

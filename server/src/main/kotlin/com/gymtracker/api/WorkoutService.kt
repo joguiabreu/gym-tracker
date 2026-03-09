@@ -1,6 +1,6 @@
 package com.gymtracker.api
 
-import com.gymtracker.ai.ClaudeClient
+import com.gymtracker.ai.AiClient
 import com.gymtracker.ai.PromptBuilder
 import com.gymtracker.shared.*
 import kotlinx.serialization.json.Json
@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory
  * In production, these logs feed into tools like Datadog, Grafana, or ELK
  * where you can alert on error rates and latency spikes.
  */
-class WorkoutService(private val claude: ClaudeClient) {
+class WorkoutService(private val claude: AiClient) {
 
     private val log = LoggerFactory.getLogger(WorkoutService::class.java)
     private val json = Json { ignoreUnknownKeys = true }

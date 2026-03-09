@@ -46,7 +46,7 @@ data class Usage(
 class ClaudeClient(
     private val apiKey: String,
     private val model: String = "claude-sonnet-4-20250514"
-) {
+) : AiClient {
     private val log = org.slf4j.LoggerFactory.getLogger(ClaudeClient::class.java)
 
     private val httpClient = HttpClient(CIO) {
@@ -58,10 +58,10 @@ class ClaudeClient(
         }
     }
 
-    suspend fun sendMessage(
+    override suspend fun sendMessage(
         userMessage: String,
-        systemPrompt: String = "",
-        maxTokens: Int = 2048
+        systemPrompt: String,
+        maxTokens: Int
     ): String {
         log.debug("sendMessage: model={}, maxTokens={}, systemLen={}, userLen={}",
             model, maxTokens, systemPrompt.length, userMessage.length

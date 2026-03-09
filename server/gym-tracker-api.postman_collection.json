@@ -1,0 +1,200 @@
+{
+  "info": {
+    "name": "Gym Tracker API",
+    "description": "AI-powered workout generation server. Start the server with `./gradlew :server:run` (defaults to mock mode).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "Returns server status and current mode (mock or live)."
+      }
+    },
+    {
+      "name": "Generate Workout",
+      "item": [
+        {
+          "name": "Generate — Chest Focus",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/workout/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["workout", "generate"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"goal\": \"Get bulkier upper body\",\n    \"days_per_week\": 4,\n    \"equipment\": [\"BARBELL\", \"DUMBBELL\", \"CABLE\"],\n    \"experience\": \"INTERMEDIATE\"\n  },\n  \"target\": \"chest\"\n}"
+            },
+            "description": "Generate a chest-focused workout for an intermediate lifter with barbell, dumbbell, and cable equipment."
+          }
+        },
+        {
+          "name": "Generate — Auto (AI Decides)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/workout/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["workout", "generate"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"goal\": \"General fitness\",\n    \"days_per_week\": 3,\n    \"equipment\": [\"DUMBBELL\"],\n    \"experience\": \"BEGINNER\"\n  }\n}"
+            },
+            "description": "No target specified — the AI picks the best muscle groups based on goal and history."
+          }
+        },
+        {
+          "name": "Generate — With History Context",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/workout/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["workout", "generate"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"goal\": \"Strength and hypertrophy\",\n    \"days_per_week\": 5,\n    \"equipment\": [\"BARBELL\", \"DUMBBELL\", \"CABLE\", \"MACHINE\", \"PULL_UP_BAR\"],\n    \"experience\": \"ADVANCED\",\n    \"injuries\": \"mild lower back tightness\"\n  },\n  \"target\": \"back\",\n  \"recent_sessions\": [\n    {\n      \"date\": \"2026-03-07\",\n      \"exercises\": [\n        {\"name\": \"Barbell Bench Press\", \"muscle_group\": \"chest\", \"sets\": [\n          {\"reps\": 8, \"weight_kg\": 80}, {\"reps\": 7, \"weight_kg\": 82.5}, {\"reps\": 6, \"weight_kg\": 82.5}\n        ]},\n        {\"name\": \"Incline Dumbbell Bench Press\", \"muscle_group\": \"chest\", \"sets\": [\n          {\"reps\": 10, \"weight_kg\": 30}, {\"reps\": 10, \"weight_kg\": 30}\n        ]}\n      ]\n    },\n    {\n      \"date\": \"2026-03-05\",\n      \"exercises\": [\n        {\"name\": \"Barbell Squat\", \"muscle_group\": \"quads\", \"sets\": [\n          {\"reps\": 5, \"weight_kg\": 100}, {\"reps\": 5, \"weight_kg\": 105}\n        ]}\n      ]\n    }\n  ],\n  \"weekly_summaries\": [\n    {\"week_start\": \"2026-03-03\", \"text\": \"4 sessions. Bench progressed 80→82.5kg. Squat stable at 105kg. Skipped Friday arms.\"}\n  ]\n}"
+            },
+            "description": "Full context request: profile with injuries, recent sessions, and weekly summaries. Shows the complete context the AI uses to generate a tailored workout."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resuggest Workout",
+      "item": [
+        {
+          "name": "Resuggest — Machine Taken",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/workout/resuggest",
+              "host": ["{{baseUrl}}"],
+              "path": ["workout", "resuggest"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"goal\": \"Get bulkier upper body\",\n    \"days_per_week\": 4,\n    \"equipment\": [\"BARBELL\", \"DUMBBELL\", \"CABLE\"],\n    \"experience\": \"INTERMEDIATE\"\n  },\n  \"kept\": [\n    {\"name\": \"Barbell Bench Press\", \"planned_sets\": 4, \"planned_reps\": 8, \"suggested_weight_kg\": 60.0, \"reason\": \"Primary compound\"},\n    {\"name\": \"Incline Dumbbell Bench Press\", \"planned_sets\": 3, \"planned_reps\": 10, \"suggested_weight_kg\": 28.0, \"reason\": \"Upper chest focus\"}\n  ],\n  \"rejected\": [\n    {\"name\": \"Pec Deck\", \"planned_sets\": 3, \"planned_reps\": 12, \"reason\": \"Machine is taken\"},\n    {\"name\": \"Cable Crossover\", \"planned_sets\": 3, \"planned_reps\": 15, \"reason\": \"Don't like this exercise\"}\n  ]\n}"
+            },
+            "description": "User kept 2 exercises and rejected 2. The AI replaces rejected exercises while keeping the accepted ones in position."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Weekly Split",
+      "item": [
+        {
+          "name": "Generate Split — 4 Days",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/split/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["split", "generate"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"goal\": \"Build muscle\",\n    \"days_per_week\": 4,\n    \"equipment\": [\"BARBELL\", \"DUMBBELL\", \"CABLE\", \"MACHINE\"],\n    \"experience\": \"INTERMEDIATE\"\n  }\n}"
+            },
+            "description": "Generate a weekly training split. Returns 7 days with focus areas and rest days."
+          }
+        },
+        {
+          "name": "Generate Split — 3 Days Beginner",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/split/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["split", "generate"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"goal\": \"General fitness\",\n    \"days_per_week\": 3,\n    \"equipment\": [\"DUMBBELL\"],\n    \"experience\": \"BEGINNER\"\n  },\n  \"recent_sessions\": [\n    {\n      \"date\": \"2026-03-05\",\n      \"exercises\": [\n        {\"name\": \"Dumbbell Bench Press\", \"muscle_group\": \"chest\", \"sets\": [\n          {\"reps\": 10, \"weight_kg\": 16}\n        ]}\n      ]\n    }\n  ]\n}"
+            },
+            "description": "Beginner with recent training history — the AI considers what they've already done this week."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Summaries",
+      "item": [
+        {
+          "name": "Weekly Summary",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/summary/weekly",
+              "host": ["{{baseUrl}}"],
+              "path": ["summary", "weekly"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessions\": [\n    {\n      \"date\": \"2026-03-03\",\n      \"exercises\": [\n        {\"name\": \"Barbell Bench Press\", \"muscle_group\": \"chest\", \"sets\": [\n          {\"reps\": 8, \"weight_kg\": 60}, {\"reps\": 8, \"weight_kg\": 62.5}, {\"reps\": 7, \"weight_kg\": 65}\n        ]},\n        {\"name\": \"Incline Dumbbell Bench Press\", \"muscle_group\": \"chest\", \"sets\": [\n          {\"reps\": 10, \"weight_kg\": 24}, {\"reps\": 10, \"weight_kg\": 24}, {\"reps\": 9, \"weight_kg\": 26}\n        ]},\n        {\"name\": \"Tricep Pushdown\", \"muscle_group\": \"triceps\", \"sets\": [\n          {\"reps\": 12, \"weight_kg\": 25}, {\"reps\": 12, \"weight_kg\": 27.5}\n        ]}\n      ]\n    },\n    {\n      \"date\": \"2026-03-05\",\n      \"exercises\": [\n        {\"name\": \"Barbell Squat\", \"muscle_group\": \"quads\", \"sets\": [\n          {\"reps\": 5, \"weight_kg\": 90}, {\"reps\": 5, \"weight_kg\": 95}, {\"reps\": 4, \"weight_kg\": 100}\n        ]},\n        {\"name\": \"Romanian Deadlift\", \"muscle_group\": \"hamstrings\", \"sets\": [\n          {\"reps\": 8, \"weight_kg\": 70}, {\"reps\": 8, \"weight_kg\": 70}\n        ]}\n      ]\n    },\n    {\n      \"date\": \"2026-03-07\",\n      \"exercises\": [\n        {\"name\": \"Pull Up\", \"muscle_group\": \"back\", \"sets\": [\n          {\"reps\": 8, \"weight_kg\": 0}, {\"reps\": 7, \"weight_kg\": 0}, {\"reps\": 6, \"weight_kg\": 0}\n        ]},\n        {\"name\": \"Barbell Row\", \"muscle_group\": \"back\", \"sets\": [\n          {\"reps\": 8, \"weight_kg\": 60}, {\"reps\": 8, \"weight_kg\": 65}\n        ]}\n      ]\n    }\n  ]\n}"
+            },
+            "description": "Compress a week's worth of sessions (3 workouts: chest, legs, back) into a ~100-token summary. The AI identifies progression trends, consistency patterns, and notable events."
+          }
+        },
+        {
+          "name": "Monthly Summary",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/summary/monthly",
+              "host": ["{{baseUrl}}"],
+              "path": ["summary", "monthly"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"weekly_summaries\": [\n    {\"week_start\": \"2026-03-03\", \"text\": \"4 sessions. Bench progressed 60→65kg. Squat stable at 100kg. Good consistency.\"},\n    {\"week_start\": \"2026-03-10\", \"text\": \"3 sessions — skipped Friday (sick). Bench held at 65kg. Started Romanian deadlifts.\"},\n    {\"week_start\": \"2026-03-17\", \"text\": \"4 sessions. Bench 65→67.5kg. Squat broke through to 105kg. Added pull-ups.\"},\n    {\"week_start\": \"2026-03-24\", \"text\": \"4 sessions. All lifts progressing. Rejected lunges twice — prefers Bulgarian split squats.\"}\n  ],\n  \"month\": \"2026-03\"\n}"
+            },
+            "description": "Compress 4 weekly summaries into a monthly trend report. Captures progression, preferences, and patterns across the month."
+          }
+        }
+      ]
+    }
+  ]
+}
